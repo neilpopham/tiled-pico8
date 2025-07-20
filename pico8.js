@@ -54,6 +54,8 @@ const PROPNAME = 'Private Data';
 const MAP_WIDTH = 128;
 const MAP_HEIGHT = 64;
 
+const FLAGS = 8;
+
 function tohex(x, ndigits)
 {
     return (x + (1 << (ndigits * 4))).toString(16).slice(-ndigits);
@@ -93,35 +95,35 @@ function pico8_read(filename)
         throw new TypeError('Not a PICO-8 cartridge!');
 
     // Create a map
-    let tm = new TileMap();
+    let tm = new TileMap('PICO-8 Map');
     tm.setSize(MAP_WIDTH, MAP_HEIGHT);
     tm.setTileSize(8, 8);
     tm.orientation = TileMap.Orthogonal;
     tm.backgroundColor = PALETTE[0];
-    //tm.setProperty('Show Sprite 0', false);
     tm.setProperty(PROPNAME, Qt.btoa(cart));
-
-    // Create an image and a tileset for the palette
-    let tsize = 12;
-    // TODO
 
     // Read gfx data into an image
     let gfx = p8_extract(cart, '__gfx__');
     let img = new Image(128, 128, Image.Format_Indexed8);
     img.setColorTable(PALETTE);
+    img.fill(0);
     for (let i = 0; i < Math.min(128 * 128, gfx.length); ++i)
         img.setPixel(i % 128, Math.floor(i / 128), fromhex(gfx[i]));
-
     // Create a tileset from sprite image
     let t = new Tileset('PICO-8 Sprites');
-    t.backgroundColor = PALETTE[3];
     t.setTileSize(8, 8);
     t.loadFromImage(img);
+    // Set Flag 0 to Flag 7 custom properties on each tile
+    let properties = {};
+    for (let i = 0; i<FLAGS; i++) {
+        properties[`Flag ${i}`] = false;
+    }
+    t.tiles.forEach(ti => { ti.setProperties(properties); });
     tm.addTileset(t);
 
     // Read map data into a tile layer
     let map = p8_extract(cart, '__map__');
-    let tl = new TileLayer();
+    let tl = new TileLayer('PICO-8 Map Layer');
     tl.width = MAP_WIDTH;
     tl.height = MAP_HEIGHT;
     let tle = tl.edit();
@@ -143,6 +145,25 @@ function pico8_read(filename)
                  gfx2.substring(i, i + 2));
     tle.apply();
     tm.addLayer(tl);
+
+    // Read __tif__ data into an object layer
+    let og = new ObjectGroup('PICO-8 Object Layer');
+    if (cart.indexOf('__tif__') > 0) {
+        const _tif = cart.match(/__tif__ ?= ?["'](.+)["']/)
+        const _tiftiles = _tif[1].split(',')
+        _tiftiles.forEach(tile => {
+            const d = tile.split(':');
+            const mo = new MapObject()
+            mo.tile = t.tile(Number(d[2]));
+            mo.pos = Qt.point(Number(d[0]) * 8, (Number(d[1]) + 1) * 8);
+            mo.size = Qt.size(8, 8);
+            for (i = 0; i < FLAGS; i++) {
+                mo.setProperty(`Flag ${i}`, !!(d[3] & (1<<i)));
+            }
+            og.addObject(mo);
+        });
+    }
+    tm.addLayer(og);
 
     return tm;
 }
@@ -180,6 +201,56 @@ function pico8_write(tm, filename)
     map = data.slice(0, 256 * 32).replace(/(0{256})+$/, '');
     cart = [prefix].concat(map.match(/.{256}/g)).concat(suffix).join(eol);
 
+    // Store __tif__ data
+    layer = tm.layerAt(1);
+    if (layer.isObjectLayer) {
+        const tiles=[];
+        layer.objects.forEach(o => {
+            if (o.tile) {
+                const custom = o.properties();
+                let bits = 0;
+                for (const property in custom) {
+                    const flag = property.match(/Flag (\d)/);
+                    if (flag != null && custom[property]) {
+                        bits |= (1 << flag[1]);
+                    }
+                }
+                const pos = tm.pixelToTile(o.pos);
+                tiles.push([pos.x, pos.y - 1, o.tile.id, bits].join(':'));
+            }
+        });
+        const meta = tiles.join(',');
+        if (cart.indexOf('__tif__') > 0) {
+            const _tif = cart.match(/__tif__ ?= ?["'](.*)["']/)
+            cart = cart.replace(_tif[1], meta);
+        } else if (meta.length) {
+            const lua=`__lua__
+
+local __tif__="${meta}"
+local _tif,_tiftiles={},split(__tif__)
+for tile in all(_tiftiles) do
+ local x,y,s,f=unpack(split(tile,":"))
+ if not _tif[x] then _tif[x]={} end
+ _tif[x][y]={s,f}
+end
+
+function tget(x,y,f)
+ return f==nil and _tif[x][y][2] or _tif[x][y][2]&1<<f>0
+end
+
+function tgets(x,y)
+ return _tif[x][y][1]
+end
+
+function tset(x,y,f,v)
+ local _f=_tif[x][y][2]
+ _f=v==nil and f or v and _f|1<<f or _f&~(1<<f)
+ _tif[x][y][2]=_f
+end`;
+            cart = cart.replace('__lua__', lua);
+        }
+    }
+
     // Save the file
     let f = new BinaryFile(filename, BinaryFile.WriteOnly);
     f.write(cart);
@@ -190,7 +261,7 @@ if (TILED_VERSION >= 10500)
 {
     const pico8_format =
     {
-        name: 'PICO-8 cart (*.p8)',
+        name: 'PICO-8 Cart',
         extension: 'p8',
         read: pico8_read,
         write: pico8_write,
