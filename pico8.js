@@ -112,6 +112,7 @@ function pico8_read(filename)
     // Create a tileset from sprite image
     let t = new Tileset('PICO-8 Sprites');
     t.setTileSize(8, 8);
+    t.objectAlignment = Tileset.TopLeft;
     t.loadFromImage(img);
     // Set Flag 0 to Flag 7 custom properties on each tile
     let properties = {};
@@ -155,7 +156,7 @@ function pico8_read(filename)
             const d = tile.split(':');
             const mo = new MapObject()
             mo.tile = t.tile(Number(d[2]));
-            mo.pos = Qt.point(Number(d[0]) * 8, (Number(d[1]) + 1) * 8);
+            mo.pos = Qt.point(Number(d[0]) * 8, Number(d[1]) * 8);
             mo.size = Qt.size(8, 8);
             for (i = 0; i < FLAGS; i++) {
                 mo.setProperty(`Flag ${i}`, !!(d[3] & (1<<i)));
@@ -216,7 +217,7 @@ function pico8_write(tm, filename)
                     }
                 }
                 const pos = tm.pixelToTile(o.pos);
-                tiles.push([pos.x, pos.y - 1, o.tile.id, bits].join(':'));
+                tiles.push([pos.x, pos.y, o.tile.id, bits].join(':'));
             }
         });
         const meta = tiles.join(',');
