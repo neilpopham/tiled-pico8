@@ -34,16 +34,48 @@ These flags can be used in the same way that PICO-8's [`fget()`](https://pico-8.
 
 The plugin adds `tget()`, `tgets()`, and `tset()` functions to the LUA code to help, although you may choose to simply interact with the `__tif__` variable directly.
 
-## Example Usage
+## Intended Usage
 
 You can use the Tile Layer to specify your map, and the Object Layer to add sprites that your code will later convert to objects.
 
 Setting flags on the tile you place then allows you to set metadata for that object, for example:
 
-* The direction that the entity is facing
+* The direction that an entity is facing
 * A unique index on a button tile, that is reflected on its sibling door tile
-* The starting health or weapon that an enemy has
+* The starting health or weapon that an entity has
 
-This negates the need for you to use a table to store this information for each entity^, and also means that if you move the entity on the map the metadata is moved with it.
+Using these flags allows you to forget about having to maintain your own table to set object metadata, and instead use a familiar system to help you initialise your objects on `_init()`. If you move a tile on your Object Layer in Tiled the metadata is moved with it, and you do not need to worry about updating your table manually.
 
-^ _This information is still stored in a table. But this negates the need for you to maintain that table._
+## LUA Code
+
+The core variable is a string called `__tif__` which stores four values for each tile:
+
+1. The tile's X co-ordinate
+2. The tile's Y co-ordinate
+3. The sprite index
+4. The flags, as an integer from 0-255
+
+The provided functions mimic PICO-8's [`fget()`](https://pico-8.fandom.com/wiki/Fget) and [`fset()`](https://pico-8.fandom.com/wiki/Fset). The additional `tgets(x,y)` returns the sprite index at the tile co-ordinates `x` and `y`.
+
+At this time I have yet to work out whether these functions are particularly useful.
+
+This is my first time using this fork, and I am simply using `__tif__` like so:
+
+    function make_entity(x,y,flags)
+        ...
+    end
+
+    makers={
+        [127]=make_entity,
+        [126]=...,
+        [125]=...,
+    }
+
+    for tile in all(split(__tif__)) do
+        local x,y,s,f=unpack(split(tile,":"))
+        makers[s](x,y,f)
+    end
+
+The code above iterates through each tile in the Object Layer, and calls a maker function for the given sprite index, passing the tile co-ordinates and flag value.
+
+If you are unfamliar with [bitwise operations](https://pico-8.fandom.com/wiki/Bitwise_Operations), then you may opt to use `tget()` to interrogate the tile's flags in your maker function.
