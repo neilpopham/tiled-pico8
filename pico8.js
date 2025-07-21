@@ -157,18 +157,20 @@ function pico8_read(filename)
     let og = new ObjectGroup('PICO-8 Object Layer');
     if (cart.indexOf('__tif__') > 0) {
         const _tif = cart.match(/__tif__ ?= ?["'](.+)["']/)
-        const _tiftiles = _tif[1].split(',')
-        _tiftiles.forEach(tile => {
-            const d = tile.split(':');
-            const mo = new MapObject()
-            mo.tile = t.tile(Number(d[2]));
-            mo.pos = Qt.point(Number(d[0]) * 8, Number(d[1]) * 8);
-            mo.size = Qt.size(8, 8);
-            for (i = 0; i < FLAGS; i++) {
-                mo.setProperty(`Flag ${i}`, !!(d[3] & (1<<i)));
-            }
-            og.addObject(mo);
-        });
+        if (_tif) {
+            const _tiftiles = _tif[1].split(',')
+            _tiftiles.forEach(tile => {
+                const d = tile.split(':');
+                const mo = new MapObject()
+                mo.tile = t.tile(Number(d[2]));
+                mo.pos = Qt.point(Number(d[0]) * 8, Number(d[1]) * 8);
+                mo.size = Qt.size(8, 8);
+                for (i = 0; i < FLAGS; i++) {
+                    mo.setProperty(`Flag ${i}`, !!(d[3] & (1<<i)));
+                }
+                og.addObject(mo);
+            });
+        }
     }
     tm.addLayer(og);
 
@@ -264,11 +266,13 @@ function pico8_write(tm, filename)
             const lua=`__lua__
 
 local __tif__="${meta}"
-local _tif,_tiftiles={},split(__tif__)
-for tile in all(_tiftiles) do
- local x,y,s,f=unpack(split(tile,":"))
- if not _tif[x] then _tif[x]={} end
- _tif[x][y]={s,f}
+if #__tif__>0 then
+ local _tif,_tiftiles={},split(__tif__)
+ for tile in all(_tiftiles) do
+  local x,y,s,f=unpack(split(tile,":"))
+  if not _tif[x] then _tif[x]={} end
+  _tif[x][y]={s,f}
+ end
 end
 
 function tget(x,y,f)
@@ -291,7 +295,7 @@ end`;
                 cart = cart.substring(0, spacer)
                     .concat(eol)
                     .concat(lua)
-                    .concat(cart.substring(spacer+eol.length));
+                    .concat(cart.substring(spacer));
             }
         }
     }
