@@ -66,6 +66,48 @@ function fromhex(s)
     return Number('0x'+s);
 }
 
+function toRgb(hexColor)
+{
+    return [
+        fromhex(hexColor.substring(1, 3)),
+        fromhex(hexColor.substring(3, 5)),
+        fromhex(hexColor.substring(5))
+    ];
+}
+
+function getPaletteIndex(pixelColor)
+{
+    const rgb = toRgb(pixelColor);
+    let best = 9999;
+    let idx = -1;
+    PALETTE.forEach((palColor, i) => {
+        const pal = toRgb(palColor);
+        const d = deltaRgb(rgb, pal);
+        if (d < best) {
+            best = d;
+            idx = i;
+        }
+    });
+    return idx;
+}
+
+/**
+ * Compare color difference in RGB
+ * https://gist.github.com/ryancat/9972419b2a78f329ce3aebb7f1a09152
+ * @param {Array} rgb1 First RGB color in array
+ * @param {Array} rgb2 Second RGB color in array
+ */
+function deltaRgb (rgb1, rgb2) {
+  const [ r1, g1, b1 ] = rgb1,
+        [ r2, g2, b2 ] = rgb2,
+        drp2 = Math.pow(r1 - r2, 2),
+        dgp2 = Math.pow(g1 - g2, 2),
+        dbp2 = Math.pow(b1 - b2, 2),
+        t = (r1 + r2) / 2
+
+  return Math.sqrt(2 * drp2 + 4 * dgp2 + 3 * dbp2 + t * (drp2 - dbp2) / 256)
+}
+
 // Extract a hexadecimal section from a p8 cart data, e.g. ‘__gfx__’
 function p8_extract(buf, header)
 {
@@ -216,8 +258,11 @@ function pico8_write(tm, filename)
             let p = tilesetImage.pixelColor(i % tilesetImage.width, Math.floor(i / tilesetImage.width));
             // Assume the image is already formatted in the PICO-8 palette
             let c = PALETTE.findIndex((color) => color === p.toString().toLowerCase())
+            // If not, try to get best match
+            if (c == -1) {
+                c = getPaletteIndex(p.toString()) % 16;
+            }
             // Write it out as color 0 if there's not an exact match found
-            // TODO: Find the nearest colour instead
             gfxOut += tohex(Math.max(c, 0), 1);
         }
     }
@@ -263,35 +308,11 @@ function pico8_write(tm, filename)
             const _tif = cart.match(/__tif__ ?= ?["'](.*)["']/)
             cart = cart.replace(_tif[1], meta);
         } else if (meta.length) {
-            const lua=`__lua__
-
-local __tif__="${meta}"
-if #__tif__>0 then
- local _tif,_tiftiles={},split(__tif__)
- for tile in all(_tiftiles) do
-  local x,y,s,f=unpack(split(tile,":"))
-  if not _tif[x] then _tif[x]={} end
-  _tif[x][y]={s,f}
- end
-end
-
-function tget(x,y,f)
- return f==nil and _tif[x][y][2] or _tif[x][y][2]&1<<f>0
-end
-
-function tgets(x,y)
- return _tif[x][y][1]
-end
-
-function tset(x,y,f,v)
- local _f=_tif[x][y][2]
- _f=v==nil and f or v and _f|1<<f or _f&~(1<<f)
- _tif[x][y][2]=_f
-end`;
+            const lua= `__lua__${eol}${eol}local __tif__="${meta}"`;
             if (cart.indexOf('__lua__') > 0) {
                 cart = cart.replace('__lua__', lua);
             } else {
-                const spacer=cart.indexOf(eol+eol);
+                const spacer = cart.indexOf(eol+eol);
                 cart = cart.substring(0, spacer)
                     .concat(eol)
                     .concat(lua)

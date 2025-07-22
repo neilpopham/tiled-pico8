@@ -32,7 +32,7 @@ This fork adds an additional Object Layer to the map, which allows you to add ti
 
 These flags can be used in the same way that PICO-8's [`fget()`](https://pico-8.fandom.com/wiki/Fget) is used for sprites, but at an individual tile level.
 
-The plugin adds `tget()`, `tgets()`, and `tset()` functions to the LUA code to help, although you may choose to simply interact with the `__tif__` variable directly.
+The file `helpers.lua` contains `tget()`, `tset()`, and `tgets()` functions to utlise the data, although you may choose to simply interact with the `__tif__` variable directly.
 
 ## Intended Usage
 
@@ -55,9 +55,7 @@ The core variable is a string called `__tif__` which stores four values for each
 3. The sprite index
 4. The flags, as an integer from 0-255
 
-The provided functions mimic PICO-8's [`fget()`](https://pico-8.fandom.com/wiki/Fget) and [`fset()`](https://pico-8.fandom.com/wiki/Fset). The additional `tgets(x,y)` returns the sprite index at the tile co-ordinates `x` and `y`.
-
-At this time I have yet to work out whether these functions are particularly useful.
+The functions provided in `helpers.lua` mimic PICO-8's [`fget()`](https://pico-8.fandom.com/wiki/Fget) and [`fset()`](https://pico-8.fandom.com/wiki/Fset). The additional `tgets(x,y)` returns the sprite index at the tile co-ordinates `x` and `y`.
 
 This is my first time using this fork, and I am simply using `__tif__` like so:
 
