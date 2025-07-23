@@ -34,6 +34,8 @@ These flags can be used in the same way that PICO-8's [`fget()`](https://pico-8.
 
 The file `helpers.lua` contains `tget()`, `tset()`, and `tgets()` functions to utlise the data, although you may choose to simply interact with the `__tif__` variable directly.
 
+![Screenshot](/tiled-pico8-objects.png)
+
 ## Intended Usage
 
 You can use the Tile Layer to specify your map, and the Object Layer to add sprites that your code will later convert to objects.
