@@ -48,6 +48,8 @@ Setting flags on the tile you place then allows you to set metadata for that obj
 
 Using these flags allows you to forget about having to maintain your own table to set object metadata, and instead use a familiar system to help you initialise your objects on `_init()`. If you move a tile on your Object Layer in Tiled the metadata is moved with it, and you do not need to worry about updating your table manually.
 
+**NB:** When placing tiles on the Object Layer you should ensure that you have *Snap to Grid* enabled, which can be found under the *View* > *Snapping* sub-menu.
+
 ## LUA Code
 
 The core variable is a string called `__tif__` which stores four values for each tile:
@@ -61,14 +63,15 @@ The functions provided in `helpers.lua` mimic PICO-8's [`fget()`](https://pico-8
 
 This is my first time using this fork, and I am simply using `__tif__` like so:
 
-    function make_entity(x,y,flags)
+    function make_entity_1(x,y,flags)
         ...
     end
 
     makers={
-        [127]=make_entity,
-        [126]=...,
-        [125]=...,
+        [127]=make_entity_1,
+        [126]=make_entity_2,
+        [125]=make_entity_3,
+        ...
     }
 
     for tile in all(split(__tif__)) do
